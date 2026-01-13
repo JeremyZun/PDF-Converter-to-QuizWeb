@@ -2,7 +2,7 @@ let extractedImages = {};
 let currentMode = 'visual'; // 預設為圖形化模式
 
 // ==========================================
-// UI 控制輔助函式 (保留進度條)
+// UI 控制輔助函式
 // ==========================================
 function setLoadingState(isLoading, initialText = "準備中...") {
     const btnPdf = document.getElementById('btn-upload-pdf');
@@ -12,20 +12,16 @@ function setLoadingState(isLoading, initialText = "準備中...") {
     const progressText = document.getElementById('progress-text');
 
     if (isLoading) {
-        if(btnPdf) btnPdf.disabled = true;
-        if(btnJson) btnJson.disabled = true;
-        if(btnPdf) btnPdf.innerText = "處理中...";
-        if(btnJson) btnJson.innerText = "處理中...";
+        if(btnPdf) { btnPdf.disabled = true; btnPdf.innerText = "處理中..."; }
+        if(btnJson) { btnJson.disabled = true; btnJson.innerText = "處理中..."; }
         
         if(progressContainer) progressContainer.classList.remove('hidden');
         if(progressFill) progressFill.style.width = '0%';
         if(progressText) progressText.innerText = initialText;
     } else {
         setTimeout(() => {
-            if(btnPdf) btnPdf.disabled = false;
-            if(btnJson) btnJson.disabled = false;
-            if(btnPdf) btnPdf.innerText = "選擇 PDF 檔案";
-            if(btnJson) btnJson.innerText = "選擇 JSON 檔案";
+            if(btnPdf) { btnPdf.disabled = false; btnPdf.innerHTML = '<span>📄</span> 選擇 PDF 檔案'; }
+            if(btnJson) { btnJson.disabled = false; btnJson.innerHTML = '<span>📂</span> 載入 JSON 檔案'; }
             if(progressContainer) progressContainer.classList.add('hidden');
         }, 500);
     }
@@ -36,6 +32,17 @@ function updateProgress(percent, text) {
     const progressText = document.getElementById('progress-text');
     if(progressFill) progressFill.style.width = `${percent}%`;
     if(text && progressText) progressText.innerText = text;
+}
+
+// HTML 轉義 (防止引號崩潰)
+function escapeHtml(text) {
+    if (text === null || text === undefined) return "";
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // ==========================================
@@ -64,7 +71,8 @@ async function processPDF() {
 
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
-            fullText += textContent.items.map(item => item.str).join(" ") + "\n";
+            // 這裡加兩個換行，增加切割的準確度
+            fullText += textContent.items.map(item => item.str).join(" ") + "\n\n";
 
             const ops = await page.getOperatorList();
             for (let j = 0; j < ops.fnArray.length; j++) {
@@ -173,12 +181,19 @@ async function processJSON() {
 }
 
 // ==========================================
-// 3. 核心解析器
+// 3. 核心解析器 (移除雜訊過濾，保留純粹切割)
 // ==========================================
 function parseTextToQuiz(text) {
     let cleanText = text.replace(/\r\n/g, "\n");
+
+    // [已移除] 雜訊過濾邏輯 (5-1, Chapter 等)
+    // 依您的要求，這裡不再主動刪除任何文字
+
+    // 切割邏輯：(開頭或空白或換行) + 數字 + (點或頓號) + 空白
+    // 這是最穩健的切割方式，確保不會全部黏在一起
     const rawBlocks = cleanText.split(/(?:^|[\s\n])(?=\d+[\.、]\s)/).filter(b => b.trim().length > 0);
 
+    // 容錯備案：如果切不出來，嘗試更寬鬆的條件 (數字+點)
     let blocksToProcess = rawBlocks;
     if (rawBlocks.length <= 1 && cleanText.length > 100) {
         const fallback = cleanText.split(/(?=\d+\.)/).filter(b => b.trim().length > 0);
@@ -186,21 +201,25 @@ function parseTextToQuiz(text) {
     }
 
     return blocksToProcess.map((block, index) => {
+        // 移除開頭的題號
         let content = block.replace(/^\s*\d+[\.、\s]+/, '').trim();
+        
         let qObj = {
             id: index + 1,
-            question: content,
+            question: content, // 題目內容保留完整
             options: [],
             answer: 0,
             img: null
         };
 
+        // 嘗試切割選項：(A), (B), (C), (D) 或 A. B. C. D.
         let parts = content.split(/[\(（]\s*[A-D]\s*[\)）][\.\s]*|[A-D][\.\、]\s+/);
         
         if (parts.length >= 2) {
             qObj.question = parts[0].trim();
             qObj.options = parts.slice(1).map(p => p.trim()).filter(p => p);
         } else {
+            // 切割失敗，給預設空選項
             qObj.options = ["選項 A", "選項 B", "選項 C", "選項 D"];
         }
 
@@ -209,7 +228,7 @@ function parseTextToQuiz(text) {
 }
 
 // ==========================================
-// 4. 視覺化編輯器 (支援增刪選項與題目)
+// 4. 視覺化編輯器
 // ==========================================
 function renderVisualEditor(data) {
     const container = document.getElementById('visual-editor');
@@ -228,37 +247,36 @@ function renderVisualEditor(data) {
         card.className = 'q-card';
         card.dataset.index = index;
 
-        // 生成選項 HTML (動態列表)
         let optionsHtml = '';
         q.options.forEach((opt, optIdx) => {
             optionsHtml += `
                 <div class="option-row">
-                    <label class="form-label" style="width:50px;">${String.fromCharCode(65 + optIdx)}</label>
-                    <input type="text" class="form-input inp-option" value="${opt}" placeholder="輸入選項內容...">
+                    <label class="form-label" style="width:40px; flex-shrink:0;">${String.fromCharCode(65 + optIdx)}</label>
+                    <input type="text" class="form-input inp-option" value="${escapeHtml(opt)}" placeholder="輸入選項內容...">
                     <button class="btn-icon btn-del-opt" onclick="removeOption(${index}, ${optIdx})" title="刪除此選項">✕</button>
                 </div>
             `;
         });
 
-        // 答案下拉選單
         let answerSelect = `<select class="form-input inp-answer">`;
         q.options.forEach((_, idx) => {
             answerSelect += `<option value="${idx}" ${q.answer === idx ? 'selected' : ''}>選項 ${String.fromCharCode(65 + idx)}</option>`;
         });
         answerSelect += `</select>`;
 
-        // 刪除題目的按鈕
-        const deleteBtn = `
-            <button onclick="deleteQuestion(${index})" class="btn-icon btn-del-q" style="position:absolute; top:15px; right:15px; border:1px solid #fee2e2; padding:5px 10px; font-size:12px;">
-                🗑️ 刪除此題
-            </button>
+        const cardHeader = `
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px dashed #eee; padding-bottom:10px;">
+                <label class="form-label" style="margin:0;">第 ${index + 1} 題</label>
+                <button onclick="deleteQuestion(${index})" class="btn-del-q">
+                    🗑️ 刪除此題
+                </button>
+            </div>
         `;
 
         card.innerHTML = `
-            ${deleteBtn}
+            ${cardHeader}
             <div class="form-group">
-                <label class="form-label"><strong>第 ${index + 1} 題</strong></label>
-                <textarea class="form-input inp-question" rows="2">${q.question}</textarea>
+                <textarea class="form-input inp-question" rows="3">${escapeHtml(q.question)}</textarea>
             </div>
             
             <div class="form-group">
@@ -266,7 +284,7 @@ function renderVisualEditor(data) {
                 <div class="options-container">
                     ${optionsHtml}
                 </div>
-                <button onclick="addOption(${index})" class="btn-add-opt">+ 新增選項</button>
+                <button onclick="addOption(${index})" class="btn-add-opt">＋ 新增選項</button>
             </div>
 
             <div class="meta-row">
@@ -276,30 +294,28 @@ function renderVisualEditor(data) {
                 </div>
                 <div style="flex:1;">
                     <label class="form-label">圖片 ID (選填)</label>
-                    <input type="text" class="form-input inp-img" value="${q.img || ''}" placeholder="例如: img_1">
+                    <input type="text" class="form-input inp-img" value="${escapeHtml(q.img || '')}" placeholder="例如: img_1">
                 </div>
             </div>
         `;
         container.appendChild(card);
     });
 
-    // 底部「新增一題」按鈕
     const addBtnDiv = document.createElement('div');
     addBtnDiv.style.marginTop = "20px";
     addBtnDiv.style.marginBottom = "40px";
     addBtnDiv.innerHTML = `
-        <button onclick="addQuestion()" class="btn-primary" style="width:100%; padding:15px; font-size:16px; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-            <span style="font-size:20px; font-weight:bold;">＋</span> 新增一題
+        <button onclick="addQuestion()" class="btn-primary" style="width:100%; padding:15px; font-size:16px; justify-content:center; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+            <span>＋</span> 新增一題
         </button>
     `;
     container.appendChild(addBtnDiv);
 }
 
 // ==========================================
-// 5. 互動功能 (題目增刪、選項增刪)
+// 5. 互動功能 (刪除/新增)
 // ==========================================
 
-// [題目] 刪除
 window.deleteQuestion = function(index) {
     if(!confirm("確定要刪除第 " + (index+1) + " 題嗎？")) return;
     syncVisualToJSON();
@@ -307,13 +323,12 @@ window.deleteQuestion = function(index) {
     let data = JSON.parse(ta.value);
     
     data.splice(index, 1);
-    data = data.map((q, i) => ({ ...q, id: i + 1 })); // 重新編號 ID
+    data = data.map((q, i) => ({ ...q, id: i + 1 }));
     
     ta.value = JSON.stringify(data, null, 4);
     renderVisualEditor(data);
 };
 
-// [題目] 新增
 window.addQuestion = function() {
     syncVisualToJSON();
     const ta = document.getElementById('json-textarea');
@@ -322,7 +337,7 @@ window.addQuestion = function() {
     
     const newQuestion = {
         id: data.length + 1,
-        question: "請輸入題目...",
+        question: "",
         options: ["", "", "", ""], 
         answer: 0,
         img: null
@@ -338,38 +353,31 @@ window.addQuestion = function() {
     }, 100);
 };
 
-// [選項] 新增
 window.addOption = function(qIndex) {
     syncVisualToJSON();
     const ta = document.getElementById('json-textarea');
     let data = JSON.parse(ta.value);
     
-    // 新增一個空白選項
     data[qIndex].options.push("");
     
     ta.value = JSON.stringify(data, null, 4);
     renderVisualEditor(data);
 };
 
-// [選項] 刪除
 window.removeOption = function(qIndex, optIndex) {
     syncVisualToJSON();
     const ta = document.getElementById('json-textarea');
     let data = JSON.parse(ta.value);
     
-    // 如果只剩兩個選項，建議不要再刪了 (雖然沒強制禁止)
     if(data[qIndex].options.length <= 2) {
-        if(!confirm("選項太少可能不符合測驗需求，確定要刪除嗎？")) return;
+        if(!confirm("選項過少，確定要刪除嗎？")) return;
     }
 
-    // 刪除該選項
     data[qIndex].options.splice(optIndex, 1);
 
-    // [防呆] 如果刪除的選項是正確答案，或正確答案索引超出範圍，重置為 0
     if (data[qIndex].answer === optIndex || data[qIndex].answer >= data[qIndex].options.length) {
         data[qIndex].answer = 0;
     } else if (data[qIndex].answer > optIndex) {
-        // 如果刪除的是正確答案之前的選項，正確答案索引要 -1
         data[qIndex].answer -= 1;
     }
     
@@ -398,7 +406,7 @@ function switchMode(mode) {
             codeBtn.classList.remove('active');
             currentMode = 'visual';
         } catch (e) {
-            alert("JSON 格式錯誤");
+            alert("JSON 格式錯誤，請切換回原始碼模式修正");
         }
     } else {
         if (currentMode === 'visual') syncVisualToJSON();
@@ -416,8 +424,6 @@ function syncVisualToJSON() {
     cards.forEach(card => {
         const question = card.querySelector('.inp-question').value;
         const img = card.querySelector('.inp-img').value.trim() || null;
-        
-        // 抓取所有選項
         const options = Array.from(card.querySelectorAll('.inp-option')).map(inp => inp.value);
         const answer = parseInt(card.querySelector('.inp-answer').value);
         
@@ -447,7 +453,7 @@ function cleanWhitespace() {
     textarea.value = JSON.stringify(cleanedData, null, 4);
     if (currentMode === 'visual') renderVisualEditor(cleanedData);
     
-    showStatusMsg("✅ 排版已優化：清除多餘空格");
+    showStatusMsg("✅ 排版已優化");
 }
 
 function smartTrim(str) {
@@ -462,12 +468,12 @@ function smartTrim(str) {
 
 function showStatusMsg(msg) {
     const el = document.getElementById('status-msg');
-    if (el) { el.innerText = msg; el.style.color = "green"; setTimeout(() => { el.innerText = ""; }, 2000); }
+    if (el) { el.innerText = msg; el.style.color = "#10b981"; setTimeout(() => { el.innerText = ""; }, 2000); }
 }
 
 function formatJSON() {
     const ta = document.getElementById('json-textarea');
-    try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 4); alert("格式已修正！"); } catch (e) { alert("格式錯誤"); }
+    try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 4); showStatusMsg("格式已修正"); } catch (e) { alert("JSON 格式錯誤"); }
 }
 
 function convertImageToBase64(imgObj) {
@@ -487,10 +493,10 @@ function convertImageToBase64(imgObj) {
 
 function renderImageGallery() {
     const gallery = document.getElementById('image-gallery'); gallery.innerHTML = '';
-    if (Object.keys(extractedImages).length === 0) { gallery.innerHTML = '<p style="color:#999;font-size:12px;">無圖片</p>'; return; }
+    if (Object.keys(extractedImages).length === 0) { gallery.innerHTML = '<p style="color:#666;font-size:12px;">無圖片</p>'; return; }
     for (const [id, src] of Object.entries(extractedImages)) {
         const div = document.createElement('div'); div.className = 'gallery-item'; div.id = `gallery-${id}`;
-        div.innerHTML = `<div class="img-wrapper"><img src="${src}" onclick="previewImage('${src}')"></div><div class="img-controls"><span class="badge" style="background:#eee;color:#333">${id}</span><div><button class="btn-icon btn-copy" onclick="copyId('${id}')">複製</button><button class="btn-icon btn-del" onclick="deleteImage('${id}')">刪</button></div></div>`;
+        div.innerHTML = `<div class="img-wrapper"><img src="${src}" onclick="previewImage('${src}')"></div><div class="img-controls"><span class="badge" style="background:#eee;color:#333;transform:none;">${id}</span><div><button class="btn-icon btn-copy" onclick="copyId('${id}')">📋</button><button class="btn-icon btn-del" onclick="deleteImage('${id}')">✕</button></div></div>`;
         gallery.appendChild(div);
     }
 }
@@ -498,8 +504,12 @@ function renderImageGallery() {
 window.copyId = function(id) {
     navigator.clipboard.writeText(id).then(() => {
         const activeEl = document.activeElement;
-        if (activeEl && activeEl.classList.contains('inp-img')) activeEl.value = id;
-        else alert(`已複製 ${id}`);
+        if (activeEl && activeEl.classList.contains('inp-img')) {
+            activeEl.value = id;
+            activeEl.dispatchEvent(new Event('input'));
+        } else {
+            showStatusMsg(`已複製 ${id}`);
+        }
     });
 };
 

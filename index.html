@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF 題庫轉換工廠 (Pro版)</title>
+    <title>PDF 題庫轉換工廠 (Pro)</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
@@ -14,30 +14,30 @@
 
 <div class="container">
     <header>
-        <h1>PDF 題庫轉換工廠 <span class="badge">Pro</span></h1>
-        <p>上傳 PDF -> 智能解析 -> 視覺化編輯 -> 生成測驗平台</p>
+        <h1>PDF 題庫轉換工廠 <span class="badge">PRO</span></h1>
+        <p>上傳 PDF 試卷，自動轉換為現代化線上測驗平台。</p>
     </header>
 
     <section id="step-upload" class="card">
         <h2>1. 開始使用</h2>
         <div class="upload-grid">
             <div class="upload-box">
-                <h3>📂 轉換新 PDF 題庫</h3>
-                <p>將 PDF 試卷轉換為可編輯的題庫</p>
+                <h3>📂 轉換 PDF 題庫</h3>
+                <p>將試卷轉換為可編輯題庫</p>
                 <input type="file" id="file-input-pdf" accept=".pdf" class="hidden-input" onchange="processPDF()" />
                 <button id="btn-upload-pdf" class="btn-primary" onclick="document.getElementById('file-input-pdf').click()">
-                    選擇 PDF 檔案
+                    <span>📄</span> 選擇 PDF 檔案
                 </button>
             </div>
 
             <div class="divider">OR</div>
 
-            <div class="upload-box secondary-box">
-                <h3>💾 載入現有題庫 (.json)</h3>
-                <p>繼續編輯或直接開始測驗</p>
+            <div class="upload-box">
+                <h3>💾 載入現有題庫</h3>
+                <p>讀取之前儲存的 .json 檔</p>
                 <input type="file" id="file-input-json" accept=".json" class="hidden-input" onchange="processJSON()" />
                 <button id="btn-upload-json" class="btn-secondary" onclick="document.getElementById('file-input-json').click()">
-                    選擇 JSON 檔案
+                    <span>📂</span> 載入 JSON 檔案
                 </button>
             </div>
         </div>
@@ -51,16 +51,16 @@
     </section>
 
     <section id="step-edit" class="card hidden">
-        <div class="step-header">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <h2>2. 編輯題庫內容</h2>
-                <button onclick="cleanWhitespace()" style="font-size:12px; padding:4px 8px; background:#f0f9ff; border:1px solid #bae6fd; color:#0284c7;">
-                    🧹 清除多餘空格
+        <div class="step-header" style="display:flex; justify-content:space-between; margin-bottom:20px;">
+            <div style="display:flex; align-items:center; gap:15px;">
+                <h2>2. 編輯與校對</h2>
+                <button class="btn-secondary" onclick="cleanWhitespace()" style="padding:6px 12px; font-size:0.85rem;">
+                    🧹 智能清除多餘空格
                 </button>
             </div>
             <div class="mode-toggle">
-                <button id="btn-visual" class="mode-btn active" onclick="switchMode('visual')">🎨 圖形化編輯 (推薦)</button>
-                <button id="btn-code" class="mode-btn" onclick="switchMode('code')">⚙️ 進階 JSON 原始碼</button>
+                <button id="btn-visual" class="btn-primary" onclick="switchMode('visual')">🎨 圖形編輯</button>
+                <button id="btn-code" class="btn-secondary" onclick="switchMode('code')">⚙️ 原始碼</button>
             </div>
         </div>
         
@@ -69,31 +69,25 @@
                 <div id="visual-editor" class="visual-container"></div>
                 <div id="code-editor" class="code-container hidden">
                     <div class="toolbar">
-                        <span class="toolbar-label">JSON 原始碼</span>
-                        <div class="toolbar-actions">
-                            <button class="btn-sm" onclick="cleanWhitespace()" style="background:#dbeafe; color:#1e40af; margin-right:5px;">
-                                🧹 一鍵排版優化 (清除多餘空格)
-                            </button>
-                            <button class="btn-sm" onclick="formatJSON()">✨ 檢查格式並美化</button>
-                        </div>
+                        <span class="status-msg">JSON 原始碼編輯模式</span>
+                        <button class="btn-sm btn-secondary" onclick="formatJSON()">✨ 格式美化</button>
                     </div>
                     <textarea id="json-textarea" spellcheck="false"></textarea>
-                    <p class="hint">請確認 JSON 格式正確，錯誤的逗號或引號會導致無法生成。</p>
                 </div>
             </div>
 
             <div class="sidebar">
                 <h3>🖼️ 圖片素材庫</h3>
-                <p class="sidebar-hint">點擊「複製 ID」後，貼入題目的圖片欄位。</p>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:15px;">點擊「複製 ID」後填入左側圖片欄位</p>
                 <div id="image-gallery"></div>
             </div>
         </div>
         
         <div class="action-footer">
             <div class="status-msg" id="status-msg"></div>
-            <div class="main-actions">
-                <button class="btn-secondary" onclick="downloadJSON()">💾 下載備份 (.json)</button>
-                <button class="btn-primary" onclick="openQuizPage()">🚀 生成並開啟測驗頁面</button>
+            <div style="display:flex; gap:15px;">
+                <button class="btn-secondary" onclick="downloadJSON()">💾 下載題庫備份</button>
+                <button class="btn-primary" onclick="openQuizPage()">🚀 生成測驗頁面</button>
             </div>
         </div>
     </section>
