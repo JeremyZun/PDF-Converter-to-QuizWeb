@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>線上測驗</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>線上測驗平台</h1>
+        <div class="quiz-info-bar">
+            <span id="timer">⏱️ 00:00</span>
+            <button class="btn-secondary" onclick="window.close()" style="font-size: 0.8rem;">放棄離開</button>
+        </div>
+    </header>
+
+    <div id="quiz-container">
+        <p style="text-align: center; color: #666;">正在讀取題庫數據...</p>
+    </div>
+
+    <div id="controls" class="hidden" style="text-align: center; margin-top: 30px;">
+        <button id="submit-btn" class="btn-primary" onclick="checkAnswers()">送出答案交卷</button>
+        <div id="result-area"></div>
+    </div>
+</div>
+
+<script src="quiz-renderer.js"></script>
+</body>
+</html>
