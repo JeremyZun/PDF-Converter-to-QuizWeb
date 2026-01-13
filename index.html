@@ -25,7 +25,7 @@
                 <h3>📂 轉換新 PDF 題庫</h3>
                 <p>將 PDF 試卷轉換為可編輯的題庫</p>
                 <input type="file" id="file-input-pdf" accept=".pdf" class="hidden-input" onchange="processPDF()" />
-                <button class="btn-primary" onclick="document.getElementById('file-input-pdf').click()">
+                <button id="btn-upload-pdf" class="btn-primary" onclick="document.getElementById('file-input-pdf').click()">
                     選擇 PDF 檔案
                 </button>
             </div>
@@ -36,10 +36,17 @@
                 <h3>💾 載入現有題庫 (.json)</h3>
                 <p>繼續編輯或直接開始測驗</p>
                 <input type="file" id="file-input-json" accept=".json" class="hidden-input" onchange="processJSON()" />
-                <button class="btn-secondary" onclick="document.getElementById('file-input-json').click()">
+                <button id="btn-upload-json" class="btn-secondary" onclick="document.getElementById('file-input-json').click()">
                     選擇 JSON 檔案
                 </button>
             </div>
+        </div>
+
+        <div id="progress-container" class="hidden">
+            <div class="progress-bar-track">
+                <div id="progress-bar-fill" class="progress-bar-fill"></div>
+            </div>
+            <p id="progress-text">正在準備解析...</p>
         </div>
     </section>
 
@@ -59,10 +66,7 @@
         
         <div class="editor-layout">
             <div class="editor-main">
-                
-                <div id="visual-editor" class="visual-container">
-                    </div>
-
+                <div id="visual-editor" class="visual-container"></div>
                 <div id="code-editor" class="code-container hidden">
                     <div class="toolbar">
                         <span class="toolbar-label">JSON 原始碼</span>
